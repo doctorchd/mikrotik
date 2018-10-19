@@ -1,0 +1,107 @@
+1 Add IP-address for VPN connection
+/ip address
+print
+Flags: X - disabled, I - invalid, D - dynamic
+ #   ADDRESS            NETWORK         INTERFACE
+ 0   ;;; default configuration
+     172.16.0.1/24      172.16.0.0      ether2
+ 1   172.16.1.1/24      172.16.1.0      ether3
+ 2   172.20.0.1/24      172.20.0.0      ether4
+ 3   172.30.0.1/24      172.30.0.0      ether5
+ 4 D 177.33.236.185/22  177.33.236.0    ether1-gateway
+add address=172.16.100.1/24 interface=ether2
+print
+Flags: X - disabled, I - invalid, D - dynamic
+ #   ADDRESS            NETWORK         INTERFACE
+ 0   ;;; default configuration
+     172.16.0.1/24      172.16.0.0      ether2
+ 1   172.16.1.1/24      172.16.1.0      ether3
+ 2   172.20.0.1/24      172.20.0.0      ether4
+ 3   172.30.0.1/24      172.30.0.0      ether5
+ 4 D 177.33.236.185/22  177.33.236.0    ether1-gateway
+ 5   172.16.100.1/24    172.16.100.0    ether2
+2 Setup PPTP server
+/interface pptp-server server
+set enabled=yes
+print
+            enabled: yes
+            max-mtu: 1450
+            max-mru: 1450
+               mrru: disabled
+     authentication: mschap1,mschap2
+  keepalive-timeout: 30
+    default-profile: default-encryption
+/ppp profile
+add name="foo" local-address=172.16.100.1 remote-address=172.16.100.250 use-encryption=yes
+print
+Flags: * - default
+ 0 * name="default" remote-ipv6-prefix-pool=none use-ipv6=yes use-mpls=default use-compression=default use-vj-compression=default use-encryption=default only-one=default change-tcp-mss=yes
+
+ 1   name="foo" local-address=172.16.100.1 remote-address=172.16.100.250 remote-ipv6-prefix-pool=none use-ipv6=yes use-mpls=default use-compression=default use-vj-compression=default
+     use-encryption=yes only-one=default change-tcp-mss=default
+
+ 2 * name="default-encryption" remote-ipv6-prefix-pool=none use-ipv6=yes use-mpls=default use-compression=default use-vj-compression=default use-encryption=yes only-one=default
+     change-tcp-mss=yes
+/ppp secret
+add name=fooadmin password=fooadmin service=pptp profile=foo
+print
+Flags: X - disabled
+ #   NAME                                  SERVICE CALLER-ID                                 PASSWORD                                 PROFILE                                 REMOTE-ADDRESS
+ 0   fooadmin                            pptp                                              fooadmin                               foo
+3 Update firewall configuration
+/
+/ip firewall filter
+print
+ 0   ;;; default configuration
+     chain=input action=accept protocol=icmp
+
+ 1   chain=input action=accept protocol=tcp in-interface=ether1-gateway dst-port=8881
+
+ 2   chain=input action=accept protocol=tcp in-interface=ether1-gateway dst-port=4322
+
+ 3   ;;; default configuration
+     chain=input action=accept connection-state=established
+
+ 4   ;;; default configuration
+     chain=input action=accept connection-state=related
+
+ 5   ;;; default configuration
+     chain=input action=drop in-interface=sfp1-gateway
+
+ 6   ;;; default configuration
+     chain=input action=drop in-interface=ether1-gateway
+add chain=input action=accept protocol=udp dst-port=1723 src-address=193.110.184.0/23
+add chain=input action=accept protocol=tcp dst-port=1723 src-address=193.110.184.0/23
+print
+move 7 0
+move 8 0
+print
+Flags: X - disabled, I - invalid, D - dynamic
+ 0   chain=input action=accept protocol=udp dst-port=1723 src-address=193.110.184.0/23
+
+ 1   chain=input action=accept protocol=tcp dst-port=1723 src-address=193.110.184.0/23
+
+ 2   ;;; default configuration
+     chain=input action=accept protocol=icmp
+
+ 3   chain=input action=accept protocol=tcp in-interface=ether1-gateway dst-port=8881
+
+ 4   chain=input action=accept protocol=tcp in-interface=ether1-gateway dst-port=4322
+
+ 5   ;;; default configuration
+     chain=input action=accept connection-state=established
+
+ 6   ;;; default configuration
+     chain=input action=accept connection-state=related
+
+ 7   ;;; default configuration
+     chain=input action=drop in-interface=sfp1-gateway
+
+ 8   ;;; default configuration
+     chain=input action=drop in-interface=ether1-gateway
+4 Connect and set route
+Start VPN.
+
+Add route:
+
+route add 172.16.0.0 mask 255.255.255.0 172.16.100.1 metric 1
